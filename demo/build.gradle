@@ -1,0 +1,50 @@
+plugins {
+	id 'java'
+	id 'org.springframework.boot' version '3.3.6'
+	id 'io.spring.dependency-management' version '1.1.6'
+}
+
+group = 'com.example'
+version = '0.0.1-SNAPSHOT'
+
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(17)
+	}
+}
+
+repositories {
+	mavenCentral() // Maven Central repository
+}
+
+dependencies {
+	// Spring Boot Starters
+	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+	implementation 'org.springframework.boot:spring-boot-starter-web'
+	implementation 'org.springframework.boot:spring-boot-starter-security'
+
+	// Thymeleaf with Spring Security integration
+	implementation 'org.thymeleaf.extras:thymeleaf-extras-springsecurity6:3.1.0.RELEASE'
+
+	// MySQL Connector
+	implementation 'mysql:mysql-connector-java:8.0.32'
+
+	// Lombok
+	compileOnly 'org.projectlombok:lombok'
+	annotationProcessor 'org.projectlombok:lombok'
+
+	// Spring Boot Test Starter for testing
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+
+	// JUnit Platform Launcher for running tests
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+	// jwt token
+	implementation 'io.jsonwebtoken:jjwt-api:0.11.5'
+	implementation 'io.jsonwebtoken:jjwt-impl:0.11.5'
+	implementation 'io.jsonwebtoken:jjwt-jackson:0.11.5'
+}
+
+tasks.named('test') {
+	useJUnitPlatform()
+}

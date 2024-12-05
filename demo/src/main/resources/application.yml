@@ -1,0 +1,19 @@
+# database 연동 설정
+spring:
+  datasource:
+    # 표준 드라이버 설정
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+    url: jdbc:mysql://localhost:3306/job_posting
+
+    username: root
+    password: 1234
+  thymeleaf:
+    cache: false
+
+  jpa:
+    database-platform: org.hibernate.dialect.MySQL8Dialect
+    open-in-view: false
+    show-sql: true
+    hibernate:
+      ddl-auto: update
