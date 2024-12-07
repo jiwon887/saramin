@@ -222,8 +222,7 @@ def cancel_application(application_id):
 
 
 # 공고 
-# 채용 공고 조회
-# 채용 공고 조회 (GET /jobs)
+
 # 채용 공고 조회 (GET /jobs)
 @app.route('/jobs', methods=['GET'])
 def view_post():
