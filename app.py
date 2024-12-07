@@ -3,6 +3,8 @@ from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_jwt_extended import create_access_token, jwt_required, JWTManager
 import datetime
+from mysql.connector import Error
+
 
 app = Flask(__name__)
 
@@ -24,9 +26,9 @@ class Posting(db.Model):
 
     posting_id = db.Column(db.Integer, primary_key = True, autoincrement=True)
     company_id = db.Column(db.Integer, db.ForeignKey('company.company_id'))
-    job_posting_title = db.Column(db.String(255), nullable=False)
+    title = db.Column(db.String(255), nullable=False)
     career = db.Column(db.String(255), nullable=False)
-    academic = db.Column(db.Stirng(255), nullable=False)
+    education = db.Column(db.String(255), nullable=False)
     deadline = db.Column(db.Date, nullable=False)
     skill = db.Column(db.String(255), nullable=False)
 
@@ -49,7 +51,7 @@ class Bookmark(db.Model):
     posting_id = db.Column(db.Integer, db.ForeignKey('posting.posting_id'), nullable=True)
 
 # 대기업 모델
-class Top(db.Mode):
+class Top(db.Model):
     curation_company_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     curation_company_name = db.Column(db.String(255), unique=True, nullable=True)
     curation_company_type = db.Column(db.String(255), nullable=True)
@@ -65,7 +67,7 @@ class Application(db.Model):
     application_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.user_id'), nullable=True)
     posting_id = db.Column(db.Integer, db.ForeignKey('posting.posting_id'), nullable=True)
-    applied_at = db.Column(db.DateTime, default=datetime.utcnow)
+    applied_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
 
 
 
@@ -87,6 +89,12 @@ def register():
     email = data['email']
     password = data['password']
     hashed_password = generate_password_hash(password)
+
+    # 중복된 이메일 가입 처리
+    chk = User.query.filter.by(email=email).first()
+    if chk :
+        return jsonify({"message : 이미 가입된 이메일"}), 400
+
 
     new_user = User(name=name, email=email, password=hashed_password)
     db.session.add(new_user)
@@ -211,6 +219,72 @@ def cancel_application(application_id):
     db.session.commit()
 
     return jsonify({"message": "지원이 취소되었습니다."}), 200
+
+
+# 공고 
+# 채용 공고 조회
+# 채용 공고 조회 (GET /jobs)
+# 채용 공고 조회 (GET /jobs)
+@app.route('/jobs', methods=['GET'])
+def view_post():
+    postings = Posting.query.all()
+    result = [
+        {
+            "posting_id": posting.posting_id,
+            "company_id": posting.company_id,
+            "title": posting.title,
+            "career": posting.career,
+            "education": posting.education,
+            "deadline": posting.deadline,
+            "skill": posting.skill
+        }
+        for posting in postings
+    ]
+    return jsonify(result), 200
+
+
+# 검색
+@app.route('/jobs', methods=['GET'])
+def search_post():
+    company_id = request.args.get('company_id')
+    title = request.args.get('title')
+    career = request.args.get('career')
+    education = request.args.get('education')
+    deadline = request.args.get('deadline')
+    skill = request.args.get('skill')
+
+    query = Posting.query
+
+    if company_id:
+        query = query.filter_by(company_id=company_id.contains(company_id))
+    if title:
+        query = query.filter(Posting.title.contains(title))  # 부분 일치 검색
+    if career:
+        query = query.filter_by(career=career.contains(career))
+    if education:
+        query = query.filter_by(education=education.contains(education))
+    if deadline:
+        query = query.filter_by(deadline=deadline)
+    if skill:
+        query = query.filter(Posting.skill.contains(skill))  # 부분 일치 검색
+
+    postings = query.all()
+
+    result = [
+        {
+            "posting_id": posting.posting_id,
+            "company_id": posting.company_id,
+            "title": posting.title,
+            "career": posting.career,
+            "education": posting.education,
+            "deadline": posting.deadline,
+            "skill": posting.skill
+        }
+        for posting in postings
+    ]
+    return jsonify(result), 200
+
+
 
 
 if __name__ == '__main__':
