@@ -24,7 +24,7 @@ class Posting(db.Model):
 
     posting_id = db.Column(db.Integer, primary_key = True, autoincrement=True)
     company_id = db.Column(db.Integer, db.ForeignKey('company.company_id'))
-    title = db.Column(db.String(255), nullable=False)
+    job_posting_title = db.Column(db.String(255), nullable=False)
     career = db.Column(db.String(255), nullable=False)
     academic = db.Column(db.Stirng(255), nullable=False)
     deadline = db.Column(db.Date, nullable=False)
@@ -35,9 +35,9 @@ class Posting(db.Model):
 class Company(db.Model):
     company_id = db.Column(db.Integer, primary_key = True, autoincrement=True)
     company_name = db.Column(db.String(255), unique=True ,nullable=False)
-    company_type = db.Colum(db.String(255) ,nullable=False)
-    industry = db.Column(db.String(255), nullable=False)
-    founded_year = db.Column(db.Date, nullable=False)
+    company_category = db.Column(db.String(255), nullable=False)
+    company_place = db.Column(db.String(255), nullable=False)
+    company_url = db.Column(db.String(255), nullable=False)
 
 # 북마크 모델
 class Bookmark(db.Model):
@@ -53,8 +53,8 @@ class Top(db.Mode):
     curation_company_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     curation_company_name = db.Column(db.String(255), unique=True, nullable=True)
     curation_company_type = db.Column(db.String(255), nullable=True)
-    curation_company_year = db.Column(db.Year, nullable=True)
-    curation_company_industry = db.Column(db.String(255), nullable=True)
+    curation_company_year = db.Column(db.String(255), nullable=True)
+    curation_company_genre = db.Column(db.String(255), nullable=True)
 
 
 # 지원 내역 모델
@@ -66,12 +66,6 @@ class Application(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('user.user_id'), nullable=True)
     posting_id = db.Column(db.Integer, db.ForeignKey('posting.posting_id'), nullable=True)
     applied_at = db.Column(db.DateTime, default=datetime.utcnow)
-
-
-
-# 사용자 이력서 모델
-class Resume(db.Model):
-
 
 
 
