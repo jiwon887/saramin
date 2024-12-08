@@ -41,6 +41,10 @@ api.add_namespace(jobs)
 application = Namespace('application', description='지원 관련 API')
 api.add_namespace(application)
 
+# 북마크 관련 api
+bookmark = Namespace('bookmark', description='북마크 관련 API')
+api.add_namespace(bookmark)
+
 
 
 db = SQLAlchemy(app)
@@ -93,7 +97,9 @@ class Bookmark(db.Model):
     bookmark_id = db.Column(db.Integer, primary_key = True, autoincrement=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.user_id'), nullable=True)
     posting_id = db.Column(db.Integer, db.ForeignKey('posting.posting_id'), nullable=True)
-
+bookmark_model = api.model('Bookmark',{
+    'posting_id' : fields.String(required=True, description='포스팅아이디')
+})
 # 대기업 모델
 class Top(db.Model):
     curation_company_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
@@ -187,7 +193,6 @@ class UserLogin(Resource):
             return response
 
         return make_response(jsonify({"message": "로그인 실패: 잘못된 이메일 또는 비밀번호"}), 401)
-
 
 # 사용자 정보 수정 이름, 비밀번호
 # 회원 탈퇴
@@ -374,9 +379,6 @@ class DeleteApply(Resource):
         # 응답을 JSON으로 반환 (직접 반환)
         return make_response(jsonify({"message": "지원이 취소되었습니다."}), 200)
 
-
-
-
 application.add_resource(Apply, '/', endpoint='/application')
 application.add_resource(GetApply, '/search', endpoint='/application/search')
 application.add_resource(DeleteApply, '/delete', endpoint='/application/delete')
@@ -489,6 +491,44 @@ jobs.add_resource(SearchPost, '/search')
 jobs.add_resource(ViewPost, '/', endpoint='/view')
 
 
+
+
+# 북마크
+
+# 북마크 추가 삭제
+class BookmarkResource(Resource):
+    @jwt_required()
+    @api.expect(bookmark_model)
+    def post(self):
+        email = get_jwt_identity()
+
+        user = User.query.filter_by(email=email).first()
+
+        user_id = user.user_id
+
+
+        # 요청에서 posting_id 가져오기
+        posting_id = request.json.get('posting_id')
+
+        if not posting_id:
+            return make_response(jsonify({"message": "posting_id가 필요합니다."}), 400)
+
+        # 이미 북마크가 존재하는지 확인
+        existing_bookmark = Bookmark.query.filter_by(user_id=user_id, posting_id=posting_id).first()
+
+        if existing_bookmark:
+            # 북마크가 이미 존재하면 삭제
+            db.session.delete(existing_bookmark)
+            db.session.commit()
+            return make_response(jsonify({"message": "북마크가 제거되었습니다."}), 200)
+        else:
+            # 북마크가 존재하지 않으면 추가
+            new_bookmark = Bookmark(user_id=user_id, posting_id=posting_id)
+            db.session.add(new_bookmark)
+            db.session.commit()
+            return make_response(jsonify({"message": "북마크가 추가되었습니다."}), 201)
+
+bookmark.add_resource(BookmarkResource, '/bookmarks')
 
 if __name__ == '__main__':
     app.run(debug=True)
