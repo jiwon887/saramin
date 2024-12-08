@@ -6,6 +6,7 @@ import datetime
 from mysql.connector import Error
 from flask_restx import Api, Resource, reqparse, Namespace, fields
 import re
+from sqlalchemy import func
 
 
 app = Flask(__name__)
@@ -110,6 +111,7 @@ class Application(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('user.user_id'), nullable=True)
     posting_id = db.Column(db.Integer, db.ForeignKey('posting.posting_id'), nullable=True)
     applied_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    status = db.Column(db.String, default='not applied')
 
 apply_model = api.model('Apply', {
     'posting_id' : fields.String(required=True, description='장소')
@@ -259,47 +261,77 @@ class Apply(Resource):
         existing_application = Application.query.filter_by(user_id=user.user_id, posting_id=posting_id).first()
         if existing_application:
             return jsonify({"message": "이미 해당 공고에 지원하셨습니다."}), 400
+        
 
-        application = Application(user_id=user.user_id, posting_id=posting_id)
+        application = Application(user_id=user.user_id, posting_id=posting_id, status = 'applied')
         db.session.add(application)
         db.session.commit()
 
         return make_response(jsonify({"message": "지원이 완료되었습니다.", "application_id": application.application_id}), 201)
 
-# # 지원 내역 조회 (GET /applications)
-# class GetApply(Resource):
-#     @application.doc(description = '지원 내역 조회')
-#     @jwt_required()
-#     def get(self, user_id):
-#         user_id = request.args.get('user_id')
-#         status = request.args.get('status')
-#         sort_order = request.args.get('sort', 'desc')  # 정렬 순서 (기본값: 내림차순)
+# 지원 내역 조회 (GET /applications)
+class GetApply(Resource):
+    @application.doc(description='지원 내역 조회')
+    @api.param('user_id', '유저 아이디', _in='query', type='string', require=False )
+    @api.param('posting_id', '공고 아이디', _in='query', type='string', require=False)
+    @api.param('applied_at', '지원일', _in='query', type='Date', require=False)
+    def get(self):
+        # 쿼리 파라미터에서 user_id, posting_id, applied_at(날짜) 받기
+        user_id = request.args.get('user_id', None)
+        posting_id = request.args.get('posting_id', None)
+        applied_at = request.args.get('applied_at', None)  # 날짜 필터링
+        sort_order = request.args.get('sort', 'desc')  # 정렬 순서 (기본값: 내림차순)
 
-#         query = Application.query.filter_by(user_id=user_id)
+        # 기본적으로 모든 지원 내역을 가져오는 쿼리
+        query = Application.query
 
-#         # 상태별 필터링
-#         if status:
-#             query = query.filter_by(status=status)
+        # user_id가 있을 경우 해당 유저의 지원 내역 필터링
+        if user_id:
+            query = query.filter_by(user_id=user_id)
 
-#         # 날짜별 정렬
-#         if sort_order == 'asc':
-#             query = query.order_by(Application.applied_at.asc())
-#         else:
-#             query = query.order_by(Application.applied_at.desc())
+        # posting_id가 있을 경우 해당 게시물에 지원한 유저 이메일 조회
+        if posting_id:
+            query = query.filter_by(posting_id=posting_id)
+            applications = query.all()
+            result = [
+                {
+                    "user_email": app.user.email  # 이메일 조회
+                }
+                for app in applications
+            ]
+            return jsonify(result), 200
 
-#         applications = query.all()
-#         result = [
-#             {
-#                 "application_id": app.application_id,
-#                 "posting_id": app.posting_id,
-#                 "status": app.status,
-#                 "applied_at": app.applied_at,
-#                 "resume": app.resume
-#             }
-#             for app in applications
-#         ]
+        # applied_at(날짜)이 있을 경우 해당 날짜에 지원한 내역 조회
+        if applied_at:
+            try:
+                # 날짜 형식 변환 (ISO 형식으로 받았다고 가정)
+                applied_at_date = datetime.datetime.strptime(applied_at, '%Y-%m-%d').date()
+                query = query.filter(func.date(Application.applied_at) == applied_at_date)
+            except ValueError:
+                return jsonify({"message": "잘못된 날짜 형식입니다. 'YYYY-MM-DD' 형식으로 입력해 주세요."}), 400
 
-#         return jsonify(result), 200
+        # 날짜별 정렬
+        if sort_order == 'asc':
+            query = query.order_by(Application.applied_at.asc())
+        else:
+            query = query.order_by(Application.applied_at.desc())
+
+        # 쿼리 실행 후 결과 가져오기
+        applications = query.all()
+
+        # 결과를 JSON 형식으로 변환
+        result = [
+            {
+                "application_id": app.application_id,
+                "posting_id": app.posting_id,
+                "status": app.status,
+                "applied_at": app.applied_at.isoformat(),  
+            }
+            for app in applications
+        ]
+
+        # 결과 반환
+        return make_response(jsonify(result), 200)
 
 
 # # 지원 취소 (DELETE /applications/:id)
@@ -323,7 +355,7 @@ class Apply(Resource):
 
 
 application.add_resource(Apply, '/application', endpoint='/application')
-# application.add_resource(GetApply, '/application', endpoint='/application')
+application.add_resource(GetApply, '/application/search', endpoint='/application/search')
 # application.add_resource(DeleteApply, '/application/<int:user_id>', endpoint='/application/delete')
 
 
