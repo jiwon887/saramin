@@ -75,13 +75,7 @@ class Posting(db.Model):
     education = db.Column(db.String(255), nullable=False)
     deadline = db.Column(db.Date, nullable=False)
     skill = db.Column(db.String(255), nullable=False)
-search_model = api.model('SearchModel', {
-    'title': fields.String(required=False, description='채용 공고 제목'),
-    'company_name': fields.String(required=False, description='회사 이름'),
-    'career': fields.String(required=False, description='경력'),
-    'education': fields.String(required=False, description='학력'),
-    'skill': fields.String(required=False, description='요구 기술')
-})
+
 # 회사 모델
 class Company(db.Model):
     company_id = db.Column(db.Integer, primary_key = True, autoincrement=True)
@@ -389,7 +383,41 @@ class SearchPost(Resource):
         ]
         
         return make_response(jsonify(result),200)
-    
+
+# 필터링
+class FilterPost(Resource):
+    @api.doc(description='채용 공고 검색')
+    @api.param('place', '장소', _in='query', type='string', required=False)
+    def get(self):
+        place = request.args.get('place', None)  
+
+        query = Posting.query
+
+        if place: 
+            query = query.join(Company).filter(Company.company_place.ilike(f'%{place}%'))
+
+        postings = query.all()
+
+        result = [
+            {
+                "posting_id": posting.posting_id,
+                "company_id": posting.company_id,
+                "company_name": posting.company.company_name,
+                "title": posting.title,
+                "career": posting.career,
+                "education": posting.education,
+                "deadline": posting.deadline,
+                "skill": posting.skill,
+                "company_place": posting.company.company_place
+            }
+            for posting in postings
+        ]
+        
+        return make_response(jsonify(result), 200)
+
+
+
+jobs.add_resource(FilterPost, '/filter', endpoint='/filter')
 jobs.add_resource(SearchPost, '/search')
 jobs.add_resource(ViewPost, '/', endpoint='/view')
 
