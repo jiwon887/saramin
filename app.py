@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify, make_response
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
-from flask_jwt_extended import create_access_token, jwt_required, JWTManager
+from flask_jwt_extended import create_access_token, jwt_required, JWTManager, get_jwt_identity
 import datetime
 from mysql.connector import Error
 from flask_restx import Api, Resource, reqparse, Namespace, fields
@@ -111,6 +111,9 @@ class Application(db.Model):
     posting_id = db.Column(db.Integer, db.ForeignKey('posting.posting_id'), nullable=True)
     applied_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
 
+apply_model = api.model('Apply', {
+    'posting_id' : fields.String(required=True, description='장소')
+})
 # 토큰 설정
 app.config.update(
         DEBUG=True,
@@ -231,28 +234,37 @@ auth.add_resource(UserUpdate, '/users/<string:email>', endpoint='user_update')
 auth.add_resource(TokenRefresh, '/refresh/<string:email>', endpoint='/refresh')
 
 
-# 지원하기 기능
-# 지원하기 (POST /applications)
-# class Apply(Resource):
-#     @application.doc(description ='지원하기')
-#     @jwt_required()
-#     def put(self):
-#         data = request.json
-#         user_id = data.get('user_id')
-#         posting_id = data.get('posting_id')
+#지원하기 기능
+#지원하기 (POST /applications)
+class Apply(Resource):
+    @application.doc(description ='지원하기')
+    @jwt_required()
+    @api.expect(apply_model)
+    def post(self):
+        # 현재 로그인한 사용자의 email을 통해 user_id를 가져옴
+        current_user_email = get_jwt_identity()
+        user = User.query.filter_by(email=current_user_email).first()  
+        if not user:
+            return jsonify({"message": "사용자가 존재하지 않습니다."}), 404
+        
+        data = request.get_json()
+        posting_id = data.get('posting_id')
 
-#         # 중복 지원 체크
-#         existing_application = Application.query.filter_by(user_id=user_id, posting_id=posting_id).first()
-#         if existing_application:
-#             return jsonify({"message": "이미 해당 공고에 지원하셨습니다."}), 400
+        # posting_id가 유효한지 체크
+        posting = Posting.query.filter_by(posting_id=posting_id).first()
+        if not posting:
+            return jsonify({"message": "존재하지 않는 채용 공고입니다."}), 400
 
-#         # 지원 정보 저장
-#         application = Application(user_id=user_id, posting_id=posting_id)
-#         db.session.add(application)
-#         db.session.commit()
+        # 중복 지원 체크
+        existing_application = Application.query.filter_by(user_id=user.user_id, posting_id=posting_id).first()
+        if existing_application:
+            return jsonify({"message": "이미 해당 공고에 지원하셨습니다."}), 400
 
-#         return jsonify({"message": "지원이 완료되었습니다.", "application_id": application.application_id}), 201
+        application = Application(user_id=user.user_id, posting_id=posting_id)
+        db.session.add(application)
+        db.session.commit()
 
+        return make_response(jsonify({"message": "지원이 완료되었습니다.", "application_id": application.application_id}), 201)
 
 # # 지원 내역 조회 (GET /applications)
 # class GetApply(Resource):
@@ -310,7 +322,7 @@ auth.add_resource(TokenRefresh, '/refresh/<string:email>', endpoint='/refresh')
 #         return jsonify({"message": "지원이 취소되었습니다."}), 200
 
 
-# application.add_resource(Apply, '/application', endpoint='/application')
+application.add_resource(Apply, '/application', endpoint='/application')
 # application.add_resource(GetApply, '/application', endpoint='/application')
 # application.add_resource(DeleteApply, '/application/<int:user_id>', endpoint='/application/delete')
 
