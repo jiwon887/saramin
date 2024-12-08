@@ -334,29 +334,52 @@ class GetApply(Resource):
         return make_response(jsonify(result), 200)
 
 
-# # 지원 취소 (DELETE /applications/:id)
-# class DeleteApply(Resource):
-#     @jwt_required()
-#     @application.doc(description = '지원 취소')
-#     def delete(application_id):
-#         application = Application.query.get(application_id)
-#         if not application:
-#             return jsonify({"message": "지원 내역을 찾을 수 없습니다."}), 404
+# 지원 취소from flask import jsonify, make_response
+class DeleteApply(Resource):
+    @jwt_required()
+    @application.doc(description='지원 취소')
+    @api.param('posting_id', '공고 아이디', _in='query', type='string', required=True)
+    def delete(self):
+        email = get_jwt_identity()
 
-#         # 지원 취소 가능 여부 확인
-#         if application.status != "submitted":
-#             return jsonify({"message": "해당 지원은 취소할 수 없습니다."}), 400
+        user = User.query.filter_by(email=email).first()
 
-#         # 상태 업데이트
-#         application.status = "cancelled"
-#         db.session.commit()
+        user_id = user.user_id
 
-#         return jsonify({"message": "지원이 취소되었습니다."}), 200
+        # 요청에서 posting_id 가져오기
+        posting_id = request.args.get('posting_id')
+        
+        # posting_id가 정수로 변환 가능한지 확인
+        try:
+            posting_id = int(posting_id)  # posting_id를 정수로 변환 (필요한 경우)
+        except (ValueError, TypeError):
+            return make_response(jsonify({"message": "잘못된 posting_id 형식입니다."}), 400)
+
+        if not posting_id:
+            return make_response(jsonify({"message": "취소할 posting_id를 입력하세요."}), 400)
+    
+        # user_id와 posting_id로 지원 내역 조회
+        application = Application.query.filter_by(user_id=user_id, posting_id=posting_id).first()
+        if not application:
+            return make_response(jsonify({"message": "지원 내역을 찾을 수 없습니다."}), 404)
+
+        # 지원 취소 가능 여부 확인
+        if application.status != "applied":
+            return make_response(jsonify({"message": "해당 지원은 취소할 수 없습니다."}), 400)
+
+        # 상태 업데이트
+        application.status = "cancelled"
+        db.session.commit()
+
+        # 응답을 JSON으로 반환 (직접 반환)
+        return make_response(jsonify({"message": "지원이 취소되었습니다."}), 200)
 
 
-application.add_resource(Apply, '/application', endpoint='/application')
-application.add_resource(GetApply, '/application/search', endpoint='/application/search')
-# application.add_resource(DeleteApply, '/application/<int:user_id>', endpoint='/application/delete')
+
+
+application.add_resource(Apply, '/', endpoint='/application')
+application.add_resource(GetApply, '/search', endpoint='/application/search')
+application.add_resource(DeleteApply, '/delete', endpoint='/application/delete')
 
 
 # 공고 
