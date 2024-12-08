@@ -100,6 +100,8 @@ class Bookmark(db.Model):
 bookmark_model = api.model('Bookmark',{
     'posting_id' : fields.String(required=True, description='포스팅아이디')
 })
+
+
 # 대기업 모델
 class Top(db.Model):
     curation_company_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
@@ -528,7 +530,42 @@ class BookmarkResource(Resource):
             db.session.commit()
             return make_response(jsonify({"message": "북마크가 추가되었습니다."}), 201)
 
+# 북마크 목록 조회
+class BookmarkListResource(Resource):
+    @api.param('user_id', '유저의 ID', _in='query', type='integer', required=True)
+    def get(self):
+        user_id = request.args.get('user_id')  # 쿼리 파라미터로 user_id 받기
+
+        if not user_id:
+            return jsonify({"message": "user_id가 필요합니다."}), 400
+
+        # 페이지네이션을 위한 기본값
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 10, type=int)
+
+        # user_id로 해당하는 북마크 목록 조회
+        bookmarks_query = Bookmark.query.filter_by(user_id=user_id)
+
+        # 페이지네이션 적용
+        bookmarks = bookmarks_query.paginate(page=page, per_page=per_page, error_out=False)
+
+        # 결과가 없으면 404 반환
+        if not bookmarks.items:
+            return make_response(jsonify({"message": "북마크가 없습니다."}), 404)
+
+        # 북마크 목록을 리스트로 변환하여 반환
+        result = [{"bookmark_id": bookmark.bookmark_id, "posting_id": bookmark.posting_id} for bookmark in bookmarks.items]
+        
+        return make_response(jsonify({
+            "bookmarks": result,
+            "total": bookmarks.total,
+            "pages": bookmarks.pages,
+            "current_page": bookmarks.page
+        }), 200)
+
+
 bookmark.add_resource(BookmarkResource, '/bookmarks')
+bookmark.add_resource(BookmarkListResource, '/bookmarks/search')
 
 if __name__ == '__main__':
     app.run(debug=True)
