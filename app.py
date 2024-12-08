@@ -391,8 +391,32 @@ application.add_resource(DeleteApply, '/delete', endpoint='/application/delete')
 # 채용 공고 조회 (GET /jobs)
 class ViewPost(Resource):
     @jobs.doc(description='채용 공고 조회')
+    @api.param('page', '페이지 번호 (기본값: 1)', type=int, default=1)
+    @api.param('per_page', '페이지 당 항목 수 (기본값: 20)', type=int, default=20)
+    @api.param('sort_by', '정렬 기준 필드 (기본값: deadline)', type=str, default='deadline')
+    @api.param('sort_order', '정렬 순서 (asc 또는 desc, 기본값: asc)', type=str, default='asc')
     def get(self):
-        postings = Posting.query.all()
+        # 페이지네이션을 위한 파라미터 받기
+        page = request.args.get('page', 1, type=int)  
+        per_page = request.args.get('per_page', 20, type=int)  
+        sort_by = request.args.get('sort_by', 'deadline', type=str)  
+        sort_order = request.args.get('sort_order', 'asc', type=str)  
+
+        # 정렬 방향 설정 (asc 또는 desc)
+        if sort_order == 'asc':
+            order_by = getattr(Posting, sort_by).asc()
+        elif sort_order == 'desc':
+            order_by = getattr(Posting, sort_by).desc()
+        else:
+            return make_response(jsonify({"message": "Invalid sort_order"}), 400)
+
+        # 페이지네이션 및 정렬
+        postings = Posting.query.order_by(order_by).paginate(page=page, per_page=per_page, error_out=False)
+
+        # 결과가 없으면 404 반환
+        if not postings.items:
+            return make_response(jsonify({"message": "No postings found"}), 404)
+
         result = [
             {
                 "company_name": posting.company.company_name,
@@ -402,10 +426,15 @@ class ViewPost(Resource):
                 "deadline": posting.deadline,
                 "skill": posting.skill
             }
-            for posting in postings
+            for posting in postings.items
         ]
-        return make_response(jsonify(result), 200)
 
+        return make_response(jsonify({
+            "postings": result,
+            "total": postings.total,
+            "pages": postings.pages,
+            "current_page": postings.page
+        }), 200)
 # 검색
 class SearchPost(Resource):
     @api.doc(description='채용 공고 검색')
@@ -487,13 +516,9 @@ class FilterPost(Resource):
         return make_response(jsonify(result), 200)
 
 
-
 jobs.add_resource(FilterPost, '/filter', endpoint='/filter')
 jobs.add_resource(SearchPost, '/search')
 jobs.add_resource(ViewPost, '/', endpoint='/view')
-
-
-
 
 # 북마크
 
