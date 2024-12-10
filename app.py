@@ -7,6 +7,7 @@ from mysql.connector import Error
 from flask_restx import Api, Resource, reqparse, Namespace, fields
 import re
 from sqlalchemy import func
+import os
 
 
 app = Flask(__name__)
@@ -807,4 +808,9 @@ review.add_resource(GetReviews, '/getreview')
 review.add_resource(AddReview, '/addreview')
 
 if __name__ == '__main__':
+
+    host = os.getenv('FLASK_HOST', '0.0.0.0')  # 기본값 '0.0.0.0'
+    port = int(os.getenv('FLASK_PORT', 5000))  # 기본값 5000
+    app.run(host=host, port=port)
+    
     app.run(debug=True)
