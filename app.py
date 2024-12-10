@@ -119,7 +119,6 @@ class Top(db.Model):
     curation_company_year = db.Column(db.String(255), nullable=True)
     curation_company_genre = db.Column(db.String(255), nullable=True)
 
-
 # 지원 내역 모델
 class Application(db.Model):
     posting = db.relationship('Posting', backref='applications')
@@ -154,7 +153,10 @@ class Review(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('user.user_id'), nullable=False)
     posting_id = db.Column(db.Integer, db.ForeignKey('posting.posting_id'), nullable=False)
     review_content = db.Column(db.String)
-
+review_model = api.model('Review', {
+    'company_id' : fields.String(required=True, description='회사 아이디'),
+    'review_content' : fields.String(required=True, description='리뷰')
+})
 
 
 # 토큰 설정
@@ -710,8 +712,7 @@ resume.add_resource(DeleteResume, '/delete')
 
 
 
-# 회사명으로 조회
-@api.route('/search')
+# 대기업 조회
 class SearchCompany(Resource):
     @api.param('curation_company_name', '조회할 회사명 (일부 텍스트 가능)', type=str, required=True)
     def get(self):
@@ -741,6 +742,69 @@ class SearchCompany(Resource):
         return make_response(jsonify(result), 200)
 
 curation.add_resource(SearchCompany, '/curationcompany')
+
+
+# 리뷰
+
+#리뷰 조회
+class GetReviews(Resource):
+    @api.param('company_id', 'Company ID to fetch reviews', type=int, required=True)
+    def get(self):
+
+        company_id = request.args.get('company_id', type=int)
+        # 해당 회사의 리뷰 조회
+        reviews = Review.query.join(Posting, Review.posting_id == Posting.posting_id) \
+                              .filter(Posting.company_id == company_id).all()
+        if not reviews:
+            return make_response(jsonify({"msg": "No reviews found for this company"}), 404)
+
+        # 리뷰 목록 반환
+        result = [
+            {
+                "review_id": review.review_id,
+                "user_id": review.user_id,
+                "review_content": review.review_content
+            }
+            for review in reviews
+        ]
+        return make_response(jsonify(result), 200)
+
+# 리뷰 등록
+class AddReview(Resource):
+    @jwt_required()
+    @api.expect(review_model)
+    def post(self):
+        data = request.get_json()
+        company_id = data.get('company_id')
+        review_content = data.get('review_content')
+
+        if not company_id or not review_content:
+            return make_response(jsonify({"msg": "Company ID and review content are required"}), 400)
+
+        # 현재 로그인한 사용자 정보 조회
+        user_email = get_jwt_identity()
+        user = User.query.filter_by(email=user_email).first()
+        if not user:
+            return make_response(jsonify({"msg": "User not found"}), 404)
+
+        # 회사 존재 여부 확인
+        posting = Posting.query.filter_by(company_id=company_id).first()
+        if not posting:
+            return make_response(jsonify({"msg": "Company not found"}), 404)
+
+        # 리뷰 생성
+        new_review = Review(
+            user_id=user.user_id,
+            posting_id=posting.posting_id,
+            review_content=review_content
+        )
+        db.session.add(new_review)
+        db.session.commit()
+
+        return make_response(jsonify({"msg": "Review added successfully"}), 201)
+
+review.add_resource(GetReviews, '/getreview')
+review.add_resource(AddReview, '/addreview')
 
 if __name__ == '__main__':
     app.run(debug=True)
