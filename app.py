@@ -45,7 +45,13 @@ api.add_namespace(application)
 bookmark = Namespace('bookmark', description='북마크 관련 API')
 api.add_namespace(bookmark)
 
+# 이력서 관련 api
+resume = Namespace('resume', description='이력서 관련 API')
+api.add_namespace(resume)
 
+# 리뷰 관련 api
+review = Namespace('review', description='리뷰 관련 API')
+api.add_namespace(api)
 
 db = SQLAlchemy(app)
 
@@ -101,7 +107,6 @@ bookmark_model = api.model('Bookmark',{
     'posting_id' : fields.String(required=True, description='포스팅아이디')
 })
 
-
 # 대기업 모델
 class Top(db.Model):
     curation_company_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
@@ -124,6 +129,30 @@ class Application(db.Model):
 apply_model = api.model('Apply', {
     'posting_id' : fields.String(required=True, description='장소')
 })
+
+# 이력서 모델
+class Resume(db.Model):
+    user = db.relationship('User', backref='resume')
+
+    resume_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.user_id'), nullable=False)
+    resume_content = db.Column(db.String)
+
+resume_model = api.model('Resume', {
+    'content' : fields.String(required=True, description='내용')
+})
+# 리뷰 모델
+class Review(db.Model):
+    user = db.relationship('User', backref='review')
+    posting = db.relationship('Posting', backref='review')
+
+    review_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.user_id'), nullable=False)
+    posting_id = db.Column(db.Integer, db.ForeignKey('posting.posting_id'), nullable=False)
+    review_content = db.Column(db.String)
+
+
+
 # 토큰 설정
 app.config.update(
         DEBUG=True,
@@ -591,6 +620,90 @@ class BookmarkListResource(Resource):
 
 bookmark.add_resource(BookmarkResource, '/bookmarks')
 bookmark.add_resource(BookmarkListResource, '/bookmarks/search')
+
+
+# 이력서
+
+# 이력서 추가
+class AddResume(Resource):
+    @api.expect(resume_model)
+    @jwt_required() 
+    def post(self):
+        
+        user_email = get_jwt_identity()
+
+        user = User.query.filter_by(email=user_email).first()
+        if not user:
+            return make_response(jsonify({"msg": "User not found"}), 404)
+
+        # 요청 본문에서 이력서 내용 받기
+        resume_content = request.json.get('resume_content')
+
+        # 이력서 추가
+        resume = Resume(user_id=user.user_id, resume_content=resume_content)
+        db.session.add(resume)
+        db.session.commit()
+
+        return make_response(jsonify({"msg": "Resume added successfully", "resume_id": resume.resume_id}), 201)
+
+# 이력서 조회
+class GetResume(Resource):
+    @api.param('user_id', '검색할 유저 아이디', type=int, required=True)
+    def get(self):
+        # 쿼리 파라미터로 받은 user_id 가져오기
+        user_id = request.args.get('user_id', type=int)
+
+        # 유저 ID가 없는 경우 처리
+        if not user_id:
+            return make_response(jsonify({"msg": "User ID is required"}), 400)
+
+        # 해당 유저의 이력서 조회
+        resume = Resume.query.filter_by(user_id=user_id).first()
+
+        # 이력서가 없는 경우 처리
+        if not resume:
+            return make_response(jsonify({"msg": "Resume not found"}), 404)
+
+        # 이력서 정보 반환
+        return make_response(jsonify({
+            "resume_id": resume.resume_id,
+            "resume_content": resume.resume_content
+        }), 200)
+    
+
+# 이력서 삭제
+class DeleteResume(Resource):
+    @jwt_required()
+    @api.param('resume_id', '삭제할 이력서 번호', type=int, required=True)  
+    def delete(self):
+        
+        user_email = get_jwt_identity()
+
+        # 사용자 정보 조회
+        user = User.query.filter_by(email=user_email).first()
+        if not user:
+            return make_response(jsonify({"msg": "User not found"}), 404)
+
+        # 이력서 번호 파라미터 조회
+        resume_id = request.args.get('resume_id', type=int)
+        if not resume_id:
+            return make_response(jsonify({"msg": "Resume ID is required"}), 400)
+
+        # 해당 이력서 조회
+        resume = Resume.query.filter_by(resume_id=resume_id, user_id=user.user_id).first()
+        if not resume:
+            return make_response(jsonify({"msg": "Resume not found"}), 404)
+
+        # 이력서 삭제
+        db.session.delete(resume)
+        db.session.commit()
+
+        return make_response(jsonify({"msg": "Resume deleted successfully"}), 200)
+    
+resume.add_resource(AddResume, '/add')
+resume.add_resource(GetResume, '/get')
+resume.add_resource(DeleteResume, '/delete')
+
 
 if __name__ == '__main__':
     app.run(debug=True)
