@@ -51,7 +51,11 @@ api.add_namespace(resume)
 
 # 리뷰 관련 api
 review = Namespace('review', description='리뷰 관련 API')
-api.add_namespace(api)
+api.add_namespace(review)
+
+# 대기업 정보 api
+curation = Namespace('curation', description='대기업 관련 API')
+api.add_namespace(curation)
 
 db = SQLAlchemy(app)
 
@@ -704,6 +708,39 @@ resume.add_resource(AddResume, '/add')
 resume.add_resource(GetResume, '/get')
 resume.add_resource(DeleteResume, '/delete')
 
+
+
+# 회사명으로 조회
+@api.route('/search')
+class SearchCompany(Resource):
+    @api.param('curation_company_name', '조회할 회사명 (일부 텍스트 가능)', type=str, required=True)
+    def get(self):
+        # 회사명 가져오기
+        company_name = request.args.get('curation_company_name')
+
+        if not company_name:
+            return make_response(jsonify({"msg": "Company name is required"}), 400)
+
+        # 회사명으로 데이터를 검색
+        companies = Top.query.filter(Top.curation_company_name.like(f"%{company_name}%")).all()
+
+        if not companies:
+            return make_response(jsonify({"msg": "No matching companies found"}), 404)
+
+        result = [
+            {
+                "curation_company_id": company.curation_company_id,
+                "curation_company_name": company.curation_company_name,
+                "curation_company_type": company.curation_company_type,
+                "curation_company_year": company.curation_company_year,
+                "curation_company_genre": company.curation_company_genre,
+            }
+            for company in companies
+        ]
+
+        return make_response(jsonify(result), 200)
+
+curation.add_resource(SearchCompany, '/curationcompany')
 
 if __name__ == '__main__':
     app.run(debug=True)
