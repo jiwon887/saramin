@@ -27,7 +27,7 @@ api.security = 'Bearer'
 api.init_app(app)
 
 
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:1234@localhost:3306/job_posting'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://user:1234@localhost:3306/job_posting'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # 회원 관련 api
@@ -811,6 +811,4 @@ if __name__ == '__main__':
 
     host = os.getenv('FLASK_HOST', '0.0.0.0')  # 기본값 '0.0.0.0'
     port = int(os.getenv('FLASK_PORT', 5000))  # 기본값 5000
-    app.run(host=host, port=port)
-    
-    app.run(debug=True)
+    app.run(host=host, port=port, debug=True)
