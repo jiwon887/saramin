@@ -809,6 +809,6 @@ review.add_resource(AddReview, '/addreview')
 
 if __name__ == '__main__':
 
-    host = os.getenv('FLASK_HOST', '0.0.0.0')  # 기본값 '0.0.0.0'
-    port = int(os.getenv('FLASK_PORT', 5000))  # 기본값 5000
+    host = os.getenv('FLASK_HOST', '113.198.66.75')  # 기본값 '0.0.0.0'
+    port = int(os.getenv('FLASK_PORT', 17141))  # 기본값 5000
     app.run(host=host, port=port, debug=True)
