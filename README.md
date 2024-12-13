@@ -61,6 +61,7 @@ python app.py
 * email = 이메일 입력
 * password = 비밀번호 입력
 
+
 ### `jobs` (채용 공고 관련 API)
 - 채용 공고 검색 및 조회 관련 기능 제공
 
@@ -79,26 +80,60 @@ python app.py
 * career = string(경력)
 * comapany_name = string(회사명)
 * title = string(제목)
+
   
 ### `application` (지원 관련 API)
 - 채용 공고에 지원하는 기능 제공
 
+## /application/ - 해당 공고에 지원
+* posting_id = string(포스팅 아이디)
 
+## /application/delete - 지원 취속
+* posting_id = string(포스팅 아이디)
+
+## /application/search - 지원 내역 조회
+* applied_at = date(지원일)
+* posting_id = string(포스팅 아이디)
+* user_id = string(유저 아이디)
 
 ### `bookmark` (북마크 관련 API)
 - 채용 공고 북마크 관리 기능 제공
 
+## /bookmark/bookmarks - 북마크 설정
+* posting_id = string(포스팅 아이디)
+
+## /bookmark/bookmarks/search - 북마크 조회
+* user_id = int(유저 아이디)
+
+
 ### `resume` (이력서 관련 API)
 - 사용자 이력서 작성 및 조회 기능 제공
+
+## /resume/add - 이력서 추가
+* content = text(내용 입력)
+
+## /resume/delete - 이력서 삭제
+* resume_id = int(이력서 아이디)
+
+## /resume/get - 이력서 조회
+* user_id = int(유저 아이디)
+
 
 ### `review` (리뷰 관련 API)
 - 회사 리뷰 작성 및 조회 기능 제공
 
+## /review/addreview - 리뷰 작성
+* company_id = string(회사 아이디)
+* review_content = string(내용 입력)
+
+## /review/getreview - 리뷰 조회
+* company_id = int(회사 아이디)
+
+
 ### `curation` (대기업 관련 API)
 - 대기업 정보 제공 기능 제공
 
+## /curation/curationcompany
+* curation_company_name = string(회사명)
 ---
 
-## 참고
-- Flask-RESTX를 사용하여 API 문서화와 테스트 기능을 제공합니다.
-- 자세한 API 사용 방법은 Swagger UI를 통해 확인하세요.
